@@ -1,6 +1,6 @@
 {
-    "name": "akl/mason",
-    "description": "Configurable templates",
+    "name": "akl/envoy",
+    "description": "Data transmitter with encapsulation",
     "license": "MIT",
     "authors": [
         {
@@ -8,12 +8,16 @@
             "email": "andrew@andrewklatzke.com"
         }
     ],
-    "require": {
-        "php" : ">=5.5"
-    },
     "autoload" : {
         "psr-4" : {
-            "AKL" : "src/"
+            "AKL\\" : "src"
         }
+    },
+    "repositories": [],
+    "require-dev": {
+        "phpunit/phpunit" : "4.0.*"
+    },
+    "require" : {
+
     }
 }
