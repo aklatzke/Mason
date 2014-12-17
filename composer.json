@@ -1,0 +1,19 @@
+{
+    "name": "akl/mason",
+    "description": "Configurable templates",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Andrew Klatzke",
+            "email": "andrew@andrewklatzke.com"
+        }
+    ],
+    "require": {
+        "php" : ">=5.5"
+    },
+    "autoload" : {
+        "psr-4" : {
+            "AKL" : "src/"
+        }
+    }
+}

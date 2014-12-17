@@ -1,0 +1,6 @@
+/vendor/
+/templates/
+/view/
+/partials/
+/assets/
+index.php
