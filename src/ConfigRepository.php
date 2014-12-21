@@ -8,13 +8,13 @@ class ConfigRepository
 
 	public function set( $key, $value )
 	{
-		$config[$key] = $value;
+		$this->config[$key] = $value;
 
 		return $this;
 	}
 
 	public function get( $key )
 	{
-		return $config[$key];
+		return $this->config[$key];
 	}
 }
