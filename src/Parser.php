@@ -15,7 +15,7 @@ class Parser
 	{
 		$lines = explode("\n",$file);
 		$finished = [];
-		echo "<pre>";
+
 		foreach( $lines as $index => $line) :
 			$finished[$index] = $line;
 
@@ -29,7 +29,6 @@ class Parser
 				$finished[$index] = $directive->replace($finished[$index] );
 			}
 		endforeach;
-
 
 		return implode('', $finished);
 	}
