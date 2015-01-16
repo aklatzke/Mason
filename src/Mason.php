@@ -81,11 +81,11 @@ final class Mason
 		return  self::$engine->build(  self::$templatePath . $fileName . self::$fileExtension, $compiledName );
 	}
 
-	public static function buildString( $str, $outputPath )
+	public static function buildString( $str, $options )
 	{
 		self::start();
 
-		return self::$engine->buildString( $str, $outputPath );
+		return self::$engine->buildString( $str, $options );
 	}
 
 	public static function process(  $fileName, $compiledName = '', $partial = false )
@@ -118,11 +118,11 @@ final class Mason
 		return self::$engine->getSymbolMap();
 	}
 
-	public static function symbolMap( $arr )
+	public static function symbolMap( $arr, $group = '' )
 	{
 		self::start();
 
-		return self::$engine->symbolMap($arr);
+		return self::$engine->symbolMap($arr, $group);
 	}
 
 	public static function delimiterizeRegex( $str )

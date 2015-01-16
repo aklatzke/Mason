@@ -16,14 +16,48 @@ class MasonEngine
 		$this->directiveFactory = $dFactory;
 	}
 
-	public function build( $path, $compiledName = 'template' )
+	public function build( $path, $options = [] )
 	{
-		return file_put_contents(Mason::getCompiledPath() . $compiledName . '.php' , $this->parser->parse($path, $this->symbols, $this->directives) );
+		$options = array_merge( ["compiledName" => 'template', "with" => [] ], $options );
+		var_dump($options);
+		return file_put_contents(
+			Mason::getCompiledPath() . $options['compiledName'] . '.php' ,
+			$this->parser->parse(
+				$path,
+				$this->filterByGroups($options['with'], $this->symbols),
+				$this->filterByGroups($options['with'], $this->directives)
+				)
+			);
 	}
 
-	public function buildString( $str, $outputPath )
+	public function buildString( $str, $options = [] )
 	{
-		return file_put_contents( $outputPath , $this->parser->parseString($str, $this->symbols, $this->directives) );
+		$options = array_merge( ["compiledName" => 'template', "with" => [] ], $options );
+
+		return file_put_contents(
+			$options['compiledName'],
+			$this->parser->parseString(
+				$str,
+				$this->filterByGroups($options['with'], $this->symbols),
+				$this->filterByGroups($options['with'], $this->directives)
+				)
+			);
+	}
+
+	public function filterByGroups( $groups, $items )
+	{
+		if( empty($groups) ) return $items;
+
+		$filtered = [];
+
+		foreach( $items as $item )
+		{
+			$group = $item->getGroup();
+
+			if( array_search($group, $groups) !== false ) $filtered[] = $item;
+		}
+
+		return $filtered;
 	}
 
 	public function process( $path, $compiledName ='template'  )
@@ -41,11 +75,11 @@ class MasonEngine
 		return $this->directives[] = $this->directiveFactory->create()->set( $original, $callback );
 	}
 
-	public function symbolMap( $arr )
+	public function symbolMap( $arr, $group = '')
 	{
 		foreach( $arr as $original => $replacement )
 		{
-			$this->symbols[] = $this->symbolFactory->create()->set($original, $replacement );
+			$this->symbols[] = $this->symbolFactory->create()->set( $original, $replacement )->group($group);
 		}
 	}
 

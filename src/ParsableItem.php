@@ -5,6 +5,7 @@ namespace AKL;
 class ParsableItem
 {
 	protected $hash;
+	protected $group;
 
 	public function getHash(  )
 	{
@@ -12,12 +13,28 @@ class ParsableItem
 	}
 
 	/**
-	 * Just runs preg_quotes but exists if additional sanitization is ever needed
+	 * Escapes a string for regex search
 	 * @param  [string] $str string to be sanitized
 	 * @return [string]      string after sanitization
 	 */
 	protected function escapeForRegex( $str )
 	{
 		return str_replace('\\\n' ,'\n', preg_quote($str));
+	}
+	/**
+	 * Adds a group flag on this item
+	 * @param  string $str group name
+	 * @return this
+	 */
+	public function group( $str )
+	{
+		$this->group = $str;
+
+		return $this;
+	}
+
+	public function getGroup()
+	{
+		return $this->group;
 	}
 }
