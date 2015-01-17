@@ -34,13 +34,10 @@ class MasonEngine
 	{
 		$options = array_merge( ["compiledName" => 'template', "with" => [] ], $options );
 
-		return file_put_contents(
-			$options['compiledName'],
-			$this->parser->parseString(
+		return $this->parser->parseString(
 				$str,
 				$this->filterByGroups($options['with'], $this->symbols),
 				$this->filterByGroups($options['with'], $this->directives)
-				)
 			);
 	}
 
