@@ -2,13 +2,16 @@
 
 namespace AKL;
 
-class Directive extends ParsableItem
+use AKL\Interfaces\Parsable;
+
+class Directive extends ParsableItem implements Parsable
 {
 	/**
 	 * Simple hash that includes 'name' => 'closure'
 	 * @var array
 	 */
 	protected $hash = array();
+	protected $history = [];
 
 	/**
 	 * Sets the parameters of the directive
@@ -22,6 +25,13 @@ class Directive extends ParsableItem
 		$this->action = $action;
 		$this->opts = $opts;
 
+		$this->opts = array_merge([
+			"argDelim" => ["[", "]"],
+			"argAssign" => "=",
+			"argSeparator" => ",",
+			"_defaults" => []
+		], $opts);
+
 		$this->hash[$orig[0] .  '?' . $orig[1]] = $action;
 
 		return $this;
@@ -32,45 +42,112 @@ class Directive extends ParsableItem
 	 * @param  [string] $str template to be formatted
 	 * @return [string]      string that has been transformed by the directives
 	 */
-	public function replace( $str )
+	public function capture( $document )
 	{
-		$strCopy = $str;
+		if( isset($this->history[md5($document)]) )
+			return $this->history[md5($document)];
+
 		$resArray = [];
+		$docArray = [];
 
-		$regex = Mason::delimiterizeRegex('(\b|\n|\t|\s|^)' . $this->escapeForRegex($this->orig[0]) . '(.){0,}' . $this->escapeForRegex($this->orig[1]));
+		$mod = ".";
+		if( $this->orig[1] === "\n" )
+			$mod = "[^\n]";
 
- 		$res = preg_match_all($regex, $str, $resArray);
+		$matchLineStartNonCapturing = '(?:\b|\n|\t|\s|^)';
+		$openingParameter = $this->escapeForRegex($this->orig[0]);
+		$maybeASpace = '( )?';
+		$matchAnything = '(' . $mod . '{0,})';
+		$closingParameterNonCapturing = '(?:' . $this->escapeForRegex($this->orig[1]) . ')';
+		$dotMatchesNewLinesFlag = "s";
 
-		$resArray = array_shift($resArray);
+		$regex = Mason::delimiterizeRegex("{$matchLineStartNonCapturing}{$openingParameter}{$maybeASpace}{$matchAnything}{$closingParameterNonCapturing}") . $dotMatchesNewLinesFlag;;
 
-		foreach( $resArray as $result )
+		$matches = $this->getCapturePositions( $regex, $document );
+
+		$withValues = $matches;
+
+		$tempMatches = [];
+		foreach ($matches as $index => $match)
 		{
-			$parameter = $this->getDirectiveParameter($result);
-			$args = $this->getDirectiveArguments($result);
-
-			$exploded = explode($result, $strCopy);
-			$strCopy = implode( call_user_func_array( $this->action, [$parameter, $args] ), $exploded);
+			$tempMatches = array_merge($tempMatches, $this->checkSiblings($match));
 		}
 
-		return $strCopy;
+		foreach ($matches as $index => $value)
+		{
+			$value['capture'] = $this->checkSiblings($value['capture']);
+
+			list($parameters, $content) = $this->getDirectiveParameters($value['capture']);
+			$args = array_merge($this->opts['_defaults'], $this->getDirectiveArguments($value['capture']));
+
+			$withValues[$index]['args'] = $args;
+			$withValues[$index]['param'] = $parameters;
+			$withValues[$index]['origCapture'] = $value['capture'];
+			$withValues[$index]['token'] = $this->createToken($value['capture']);
+			$withValues[$index]['action'] = $this->action;
+			$withValues[$index]['actionArgs'] = [$parameters, $content, $args];
+		}
+
+		$this->history[md5($document)] = $withValues;
+
+		return $withValues;
 	}
 
+	public function setTokens( $document )
+	{
+		$captures = $this->capture($document);
+
+		foreach ($captures as $index => $capture)
+		{
+			$token = $this->createToken($capture['origCapture']);
+
+			$document = Mason::EOL(str_replace($capture['origCapture'], $token, $document));
+		}
+
+		return $document;
+	}
 
 	/**
 	 * Extracts the parameter
 	 * @param  string $capture 	captured string
 	 * @return string          		parameter
 	 */
-	private function getDirectiveParameter( $capture )
+	private function getDirectiveParameters( $capture )
 	{
 		$temp = $capture;
+		$paramTemp = [];
 
-		foreach( $this->orig as $removable )
+		$lines = array_values(array_filter(explode("\n", $temp)));
+
+		$firstLine = str_replace($this->orig[0], "", $lines[0]);
+		$parameters = array_filter(explode(" ", trim($firstLine)));
+
+		$keyVals = array_search($this->opts['argDelim'][0], $parameters);
+
+		if( $keyVals !== false  )
 		{
-			$temp = str_replace($removable, '', $temp);
+			$firstLineParams = array_slice($parameters, 0, $keyVals);
+
+			if( is_array( $firstLineParams ) )
+			{
+				foreach ($firstLineParams as $index => $value)
+				{
+					$paramTemp[] = $value;
+				}
+			}
+
+			$parameters = $paramTemp;
 		}
 
-		return $temp;
+		# unset the first and last line to capture the content
+		$content = $lines;
+
+		unset($content[count($content) - 1]);
+		unset($content[0]);
+
+		$content = implode("\n", $content);
+
+		return [$parameters, $content];
 	}
 
 	/**
@@ -82,19 +159,34 @@ class Directive extends ParsableItem
 	{
 		$temp = $str;
 		$matchArr = [];
+		$argDelim = $this->opts['argDelim'];
+		$argAssign = $this->opts['argAssign'];
+		$argSeparator = $this->opts['argSeparator'];
 
-		$arguments = preg_match_all('#\[(.){0,}\]#', $str, $matchArr);
+		$regex = "#\\" . $argDelim[0] . "(.){0,}\\" . $argDelim[1] . "(\b| )?#";
+		$arguments = preg_match_all($regex, $str, $matchArr);
 
 		if( ! empty($matchArr[0]) )
 		{
 			$parameters = $matchArr[0][0];
-			$parameters = trim($parameters, "[]");
-			$parameters = explode("=", $parameters);
-			$collection = [];
+			$parameters = trim($parameters, implode("", $argDelim));
 
-			for( $i = 0; $i < count($parameters); $i = $i + 2 )
+			$parameters = explode($argSeparator, $parameters);
+
+			$parameters = array_map(function($el) use ($argAssign){
+					if( strpos($el, $argAssign) )
+						return explode($argAssign, $el );
+					else
+						return $el;
+			}, $parameters);
+
+			$collection = [];
+			foreach ($parameters as $index => $param)
 			{
-				$collection[$parameters[$i]] = $parameters[$i + 1];
+				if( isset($param[1]) )
+					$collection[trim($param[0])] = trim($param[1]);
+				else
+					$collection[$param[0]] = $param[0];
 			}
 
 			return $collection;
@@ -103,5 +195,103 @@ class Directive extends ParsableItem
 		{
 			return [];
 		}
+	}
+
+	private function getRegexParts()
+	{
+		$matchLineStartNonCapturing = '(?:\b|\n|\t|\s|^)';
+		$openingParameter = $this->escapeForRegex($this->orig[0]);
+		$maybeASpace = '( )?';
+		$closingParameterNonCapturing = '(?:' . $this->escapeForRegex($this->orig[1]) . ')';
+		$dotMatchesNewLinesFlag = "s";
+
+		return [
+			$matchLineStartNonCapturing,
+			$openingParameter,
+			$maybeASpace,
+			$closingParameterNonCapturing,
+			$dotMatchesNewLinesFlag
+		];
+	}
+
+	private function checkSiblings($str)
+	{
+		$newStr = $str;
+
+		return $newStr;
+	}
+
+	protected function getCapturePositions( $regex, $string )
+	{
+		$return = [];
+		$res = preg_match_all($regex, $string, $matches, PREG_OFFSET_CAPTURE);
+
+		$matches = $matches[0];
+
+		if( $res )
+		{
+				foreach ($matches as $index => $match)
+				{
+					$keyword = $match[0];
+					$index = $match[1];
+
+					// this means we have a multi match that needs to be processed for validity.
+					// There are two options here:
+					// 1) The tags are siblings e.g.:
+					// :div
+					//
+					// :enddiv
+					//
+					// :div
+					//
+					// :enddiv
+					//
+					// 2) Tags are nested e.g.:
+					// :div
+					// 	:div
+					// 	:enddiv
+					// :enddiv
+					list(
+						$matchLineStartNonCapturing,
+						$openingParameter,
+						$maybeASpace,
+						$closingParameterNonCapturing,
+						$dotMatchesNewLinesFlag
+					) = $this->getRegexParts();
+					// lets take a greedy capture of the terms start and end set.
+					// If it contains an opening tag, it means that it's a nested
+					// set rather than siblings.
+					// In this case, we should leave the capture alone as it's a parent > child
+					// relationship.
+					$mod = ".";
+					if( $this->orig[1] === "\n" )
+						$mod = "[^\n]";
+
+					$matchAnythingNonGreedy = "({$mod}+?)";
+
+					$regex = "{$matchLineStartNonCapturing}{$openingParameter}{$maybeASpace}{$matchAnythingNonGreedy}{$closingParameterNonCapturing}";
+					$initialGreedyCapture = preg_match_all(Mason::delimiterizeRegex($regex) . $dotMatchesNewLinesFlag, $keyword, $matches);
+
+					if( $matches && count($matches[0]) > 1 )
+					{
+						foreach ($matches[0] as $index => $capture)
+						{
+							$return[] = [
+								"capture" => $capture,
+								"index" => ""
+							];
+						}
+					}
+					else
+					{
+						$return[] = [
+							"capture" => $keyword,
+							"index" => $index,
+						];
+					}
+				}
+		}
+
+		return $return;
 	}
 }

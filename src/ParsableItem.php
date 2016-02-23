@@ -37,4 +37,42 @@ class ParsableItem
 	{
 		return $this->group;
 	}
+
+	public function createToken( $key )
+	{
+		$this->token = md5($key);
+
+		return "##! > " . $this->token;
+	}
+
+	public function matchToken( $key )
+	{
+
+	}
+	/**
+	 * Returns array
+	 */
+	protected function getCapturePositions( $regex, $string )
+	{
+		$return = [];
+		$res = preg_match_all($regex, $string, $matches, PREG_OFFSET_CAPTURE);
+
+		$matches = $matches[0];
+
+		if( $res )
+		{
+				foreach ($matches as $index => $match)
+				{
+					$keyword = $match[0];
+					$index = $match[1];
+
+					$return[] = [
+						"capture" => $keyword,
+						"index" => $index,
+					];
+				}
+		}
+
+		return $return;
+	}
 }

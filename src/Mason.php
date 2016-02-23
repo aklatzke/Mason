@@ -10,6 +10,7 @@ final class Mason
 	public static $compiledPath;
 	public static $fileExtension;
 	public static $regexDelimiter;
+	public static $replacerArg;
 	public static $document;
 	public static $config;
 
@@ -68,6 +69,10 @@ final class Mason
 		return self::$regexDelimiter = $char;
 	}
 
+	public static function setReplacerArg( $chars )
+	{
+		return self::$replacerArg = $chars;
+	}
 
 	public static function getFileExtension(  )
 	{
@@ -81,7 +86,7 @@ final class Mason
 		return  self::$engine->build(  self::$templatePath . $fileName . self::$fileExtension, $compiledName );
 	}
 
-	public static function buildString( $str, $options )
+	public static function buildString( $str, $options = [] )
 	{
 		self::start();
 
@@ -97,18 +102,18 @@ final class Mason
 		return  self::$engine->process(  $path . $fileName . self::$fileExtension, $compiledName );
 	}
 
-	public static function symbol( $to, $from )
+	public static function symbol( $to, $from, $options )
 	{
 		self::start();
 
-		return self::$engine->setSymbol($to, $from, []);
+		return self::$engine->setSymbol($to, $from, $options);
 	}
 
-	public static function directive( $key, $callback )
+	public static function directive( $key, $callback, $options = [] )
 	{
 		self::start();
 
-		return self::$engine->setDirective( $key, $callback );
+		return self::$engine->setDirective( $key, $callback, $options );
 	}
 
 	public static function getSymbolMap(  )
@@ -118,11 +123,11 @@ final class Mason
 		return self::$engine->getSymbolMap();
 	}
 
-	public static function symbolMap( $arr, $group = '' )
+	public static function symbolMap( $arr, $options, $group = '' )
 	{
 		self::start();
 
-		return self::$engine->symbolMap($arr, $group);
+		return self::$engine->symbolMap($arr, $options, $group);
 	}
 
 	public static function delimiterizeRegex( $str )
@@ -137,7 +142,12 @@ final class Mason
 
 	public static function EOL( $str )
 	{
-		return $str . PHP_EOL;
+		return $str . "\n";
+	}
+
+	public static function PHP( $str )
+	{
+	 	return "<?php $str ?>";
 	}
 
 	public static function config( $key, $value = false )

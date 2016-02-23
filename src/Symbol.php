@@ -2,17 +2,24 @@
 
 namespace AKL;
 
-class Symbol extends ParsableItem
+use AKL\Interfaces\Parsable;
+
+class Symbol extends ParsableItem implements Parsable
 {
 
 	private $original;
 	private $replacement;
 	protected $hash = array();
 
-	public function set( $from, $to )
+	public function set( $from, $to, $options )
 	{
 		$this->original = $from;
 		$this->replacement = $to;
+
+		$this->opts = array_merge([
+			"argDelim" => ["[", "]"],
+			"argSeparator" => " "
+		], $options);
 
 		$this->hash[$from] = $to;
 
@@ -21,7 +28,29 @@ class Symbol extends ParsableItem
 
 	public function replace( $str )
 	{
-		$regex = Mason::delimiterizeRegex('(\b|\n|\t|\s|^)' . $this->escapeForRegex($this->original) . '(\n|\s|\t|\b|$)');
-		return preg_replace($regex, $this->replacement, $str);
+		$regex = Mason::delimiterizeRegex('(?:\b|\t|^| )' . $this->original . ' ?(?:' . $this->opts['argDelim'][0] . '(.+)' . $this->opts['argDelim'][1] . '){0,1}(?:\b|$)');
+		$replacement = "";
+
+		if( is_callable( $this->replacement) && strpos($str, $this->opts['argDelim'][0] ) > -1 )
+		{
+
+			preg_match_all($regex, $str, $matches);
+
+			$match = $matches[1][0];
+
+			$match = str_replace($this->opts['argDelim'][0], "", $match);
+			$match = trim(str_replace($this->opts['argDelim'][1], "", $match));
+			$args = explode($this->opts['argSeparator'], $match);
+
+			$replacement = call_user_func_array($this->replacement, $args);
+		}
+		
+		$res = preg_replace($regex, $replacement, $str);
+
+		return $res ? $res : $str;
 	}
+
+	public function capture($string){}
+
+	public function setTokens($string){}
 }

@@ -16,10 +16,10 @@ class MasonEngine
 		$this->directiveFactory = $dFactory;
 	}
 
-	public function build( $path, $options = [] )
+	public function build( $path, $targetPath )
 	{
-		$options = array_merge( ["compiledName" => 'template', "with" => [] ], $options );
-		var_dump($options);
+		$options = ["compiledName" => $targetPath, "with" => [] ];
+
 		return file_put_contents(
 			Mason::getCompiledPath() . $options['compiledName'] . '.php' ,
 			$this->parser->parse(
@@ -62,21 +62,21 @@ class MasonEngine
 		return $this->parser->parse($path, $this->symbols, $this->directives);
 	}
 
-	public function setSymbol( $original, $replacement )
+	public function setSymbol( $original, $replacement, $options )
 	{
-		return $this->symbols[] = $this->symbolFactory->create()->set( $original, $replacement );
+		return $this->symbols[] = $this->symbolFactory->create()->set( $original, $replacement, $options );
 	}
 
-	public function setDirective( $original, $callback )
+	public function setDirective( $original, $callback, $options = [] )
 	{
-		return $this->directives[] = $this->directiveFactory->create()->set( $original, $callback );
+		return $this->directives[] = $this->directiveFactory->create()->set( $original, $callback, $options );
 	}
 
-	public function symbolMap( $arr, $group = '')
+	public function symbolMap( $arr, $options, $group = '')
 	{
 		foreach( $arr as $original => $replacement )
 		{
-			$this->symbols[] = $this->symbolFactory->create()->set( $original, $replacement )->group($group);
+			$this->symbols[] = $this->symbolFactory->create()->set( $original, $replacement, $options )->group( $group );
 		}
 	}
 

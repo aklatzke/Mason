@@ -4,6 +4,8 @@ namespace AKL;
 
 class Parser
 {
+	private $tokenList = [];
+
 	public function parse( $path, $symbols, $directives )
 	{
 		$file = file_get_contents( $path );
@@ -13,23 +15,71 @@ class Parser
 
 	public function parseString( $file, $symbols, $directives )
 	{
-		$lines = explode("\n",$file);
-		$finished = [];
+		$indexes = [];
+		$lines = explode("\n", $file);
+		if( is_array($lines) )
+		{
+				$temp = [];
 
-		foreach( $lines as $index => $line) :
-			$finished[$index] = $line;
+				foreach ($lines as $lineNumber => $line)
+				{
+					foreach( $symbols as $symbol )
+					{
+						$line = $symbol->replace($line);
+					}
 
-			foreach( $symbols as $symbol  )
+					$temp[$lineNumber] = $line;
+				}
+
+				$file = implode("\n", $temp);
+		}
+		else
+		{
+			foreach( $symbols as $symbol )
 			{
-				$finished[$index] = $symbol->replace($finished[$index] );
+				$file = $symbol->replace($file);
+			}
+		}
+
+		foreach ($directives as $index => $directive)
+		{
+			$newIndex = $directive->capture($file);
+			$indexes = array_merge($indexes, $newIndex);
+
+			foreach($newIndex as $thisIndex)
+			{
+				$this->tokenList[ $thisIndex["token"] ] = $thisIndex;
 			}
 
-			foreach( $directives as $directive  )
-			{
-				$finished[$index] = $directive->replace($finished[$index] );
-			}
-		endforeach;
+			$file = $directive->setTokens($file);
+		}
 
-		return implode('', $finished);
+		return $this->replaceTokens( $file );
+	}
+
+	public function replaceTokens( $file )
+	{
+		$indexes = $this->tokenList;
+
+		foreach ($indexes as $token => $item)
+		{
+			// THIS NEEDS TO BE CALCULATED AT RUNTIME NOT PREVIOUSLY
+			if( strpos($file, $token) > -1 )
+			{
+				$result = call_user_func_array($item['action'], $item['actionArgs']);
+				$file = str_replace($token, Mason::EOL($result), $file);
+			}
+		}
+
+		return $file;
+	}
+
+	protected function sortByIndex( Array $matches )
+	{
+		usort($matches, function($carry, $next){
+			return $carry['index'] >= $next['index'];
+		});
+
+		return $matches;
 	}
 }
