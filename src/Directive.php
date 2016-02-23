@@ -163,13 +163,16 @@ class Directive extends ParsableItem implements Parsable
 		$argAssign = $this->opts['argAssign'];
 		$argSeparator = $this->opts['argSeparator'];
 
-		$regex = "#\\" . $argDelim[0] . "(.){0,}\\" . $argDelim[1] . "(\b| )?#";
+		$regex = "#\\" . $argDelim[0] . "(.){0,}\\" . $argDelim[1] . "(\b| |\\n)?#";
 		$arguments = preg_match_all($regex, $str, $matchArr);
 
 		if( ! empty($matchArr[0]) )
 		{
 			$parameters = $matchArr[0][0];
-			$parameters = trim($parameters, implode("", $argDelim));
+			$parameters = trim($parameters);
+			$parameters = trim($parameters, $argDelim[0]);
+			$parameters = trim($parameters, $argDelim[1]);
+			$parameters = trim($parameters);
 
 			$parameters = explode($argSeparator, $parameters);
 

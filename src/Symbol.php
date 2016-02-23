@@ -28,23 +28,29 @@ class Symbol extends ParsableItem implements Parsable
 
 	public function replace( $str )
 	{
-		$regex = Mason::delimiterizeRegex('(?:\b|\t|^| )' . $this->original . ' ?(?:' . $this->opts['argDelim'][0] . '(.+)' . $this->opts['argDelim'][1] . '){0,1}(?:\b|$)');
+		$regex = Mason::delimiterizeRegex('(?:\b|\t|^| )' . $this->original . ' ?(?:\\' . $this->opts['argDelim'][0] . ').+?\\' . $this->opts['argDelim'][1]);
 		$replacement = "";
 
 		if( is_callable( $this->replacement) && strpos($str, $this->opts['argDelim'][0] ) > -1 )
 		{
-
 			preg_match_all($regex, $str, $matches);
-
-			$match = $matches[1][0];
+			$match = $matches[0][0];
 
 			$match = str_replace($this->opts['argDelim'][0], "", $match);
 			$match = trim(str_replace($this->opts['argDelim'][1], "", $match));
 			$args = explode($this->opts['argSeparator'], $match);
 
+			$delimStart = $this->opts['argDelim'][0];
+			$delimEnd = $this->opts['argDelim'][1];
+			$keyword = $this->original;
+
+			$args = array_filter($args, function( $el ) use ( $delimStart, $delimEnd, $keyword ) {
+				return trim($el) !== "" && $el !== $delimStart && $el !== $delimEnd && $el !== $keyword;
+			});
+
 			$replacement = call_user_func_array($this->replacement, $args);
 		}
-		
+
 		$res = preg_replace($regex, $replacement, $str);
 
 		return $res ? $res : $str;
